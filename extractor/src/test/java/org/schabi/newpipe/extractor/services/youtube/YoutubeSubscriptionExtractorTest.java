@@ -11,6 +11,7 @@ import org.schabi.newpipe.extractor.subscription.SubscriptionExtractor;
 import org.schabi.newpipe.extractor.subscription.SubscriptionItem;
 
 import java.io.ByteArrayInputStream;
+import java.io.File;
 import java.io.FileInputStream;
 import java.util.Arrays;
 import java.util.List;
@@ -108,6 +109,50 @@ public class YoutubeSubscriptionExtractorTest {
                 }
                 assertTrue(e.getClass().getSimpleName() + " is not InvalidSourceException", correctType);
             }
+        }
+    }
+
+    private static void assertSubscriptionItems(List<SubscriptionItem> subscriptionItems)
+            throws Exception {
+        assertTrue(subscriptionItems.size() > 0);
+
+        for (SubscriptionItem item : subscriptionItems) {
+            assertNotNull(item.getName());
+            assertNotNull(item.getUrl());
+            assertTrue(urlHandler.acceptUrl(item.getUrl()));
+            assertEquals(ServiceList.YouTube.getServiceId(), item.getServiceId());
+        }
+    }
+
+    @Test
+    public void fromZipInputStream() throws Exception {
+        List<String> zipPaths = Arrays.asList(
+                "youtube_takeout_import_test_1.zip",
+                "youtube_takeout_import_test_2.zip"
+        );
+
+        for (String path : zipPaths)
+        {
+            File file = resolveTestResource(path);
+            FileInputStream fileInputStream = new FileInputStream(file);
+            List<SubscriptionItem> subscriptionItems = subscriptionExtractor.fromZipInputStream(fileInputStream);
+            assertSubscriptionItems(subscriptionItems);
+        }
+    }
+
+    @Test
+    public void fromCsvInputStream() throws Exception {
+        List<String> csvPaths = Arrays.asList(
+                "youtube_takeout_import_test_1.csv",
+                "youtube_takeout_import_test_2.csv"
+        );
+
+        for (String path : csvPaths)
+        {
+            File file = resolveTestResource(path);
+            FileInputStream fileInputStream = new FileInputStream(file);
+            List<SubscriptionItem> subscriptionItems = subscriptionExtractor.fromCsvInputStream(fileInputStream);
+            assertSubscriptionItems(subscriptionItems);
         }
     }
 }
