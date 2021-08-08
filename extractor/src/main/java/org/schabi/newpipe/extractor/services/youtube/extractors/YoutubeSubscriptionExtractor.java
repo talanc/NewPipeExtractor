@@ -123,7 +123,7 @@ public class YoutubeSubscriptionExtractor extends SubscriptionExtractor {
 
     public static final String[] ENTRY_PATHS = {
             "Takeout/YouTube and YouTube Music/subscriptions/subscriptions.csv",
-            "Takeout/YouTube y YouTube Music/suscripciones/suscripciones.csv"
+            "Takeout/YouTube y YouTube Music/suscripciones/suscripciones.csv" // There is a <NBSP> between YouTube and Music
     };
 
     public static boolean IsEntryPathMatch(@Nonnull String entryName) {
