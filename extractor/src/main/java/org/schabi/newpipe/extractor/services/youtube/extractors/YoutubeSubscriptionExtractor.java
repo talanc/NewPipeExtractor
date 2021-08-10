@@ -25,7 +25,7 @@ import javax.annotation.Nonnull;
 import static org.schabi.newpipe.extractor.subscription.SubscriptionExtractor.ContentSource.INPUT_STREAM;
 
 /**
- * Extract subscriptions from a Google takeout export (the user has to get the JSON out of the zip)
+ * Extract subscriptions from a Google takeout export
  */
 public class YoutubeSubscriptionExtractor extends SubscriptionExtractor {
     private static final String BASE_CHANNEL_URL = "https://www.youtube.com/channel/";
@@ -40,7 +40,7 @@ public class YoutubeSubscriptionExtractor extends SubscriptionExtractor {
     }
 
     @Override
-        public List<SubscriptionItem> fromInputStream(@Nonnull final InputStream contentInputStream)
+    public List<SubscriptionItem> fromInputStream(@Nonnull final InputStream contentInputStream)
             throws ExtractionException {
         return fromJsonInputStream(contentInputStream);
     }
@@ -105,12 +105,18 @@ public class YoutubeSubscriptionExtractor extends SubscriptionExtractor {
         try {
             ZipEntry zipEntry;
             while ((zipEntry = zipInputStream.getNextEntry()) != null) {
-                if (IsEntryPathMatch(zipEntry.getName())) {
+                if (zipEntry.getName().toLowerCase().endsWith(".csv")) {
                     try {
-                        return fromCsvInputStream(zipInputStream);
-                    }
-                    catch (ExtractionException e) {
-                        throw new InvalidSourceException("Error reading contents of file '" + zipEntry.getName() + "'");
+                        List<SubscriptionItem> csvItems = fromCsvInputStream(zipInputStream);
+
+                        // Return it only if it has items (it exits early if it's the wrong file format)
+                        // Otherwise try the next file
+                        if (csvItems.size() > 0) {
+                            return csvItems;
+                        }
+                    } catch (ExtractionException e) {
+                        // Ignore error and go to next file
+                        // (maybe log it?)
                     }
                 }
             }
@@ -118,48 +124,83 @@ public class YoutubeSubscriptionExtractor extends SubscriptionExtractor {
             throw new InvalidSourceException("Error reading contents of zip file", e);
         }
 
-        throw new InvalidSourceException("Unable to find a subscriptions.csv file (try extracting and selecting the csv file)");
-    }
-
-    public static final String[] ENTRY_PATHS = {
-            "Takeout/YouTube and YouTube Music/subscriptions/subscriptions.csv",
-            "Takeout/YouTube y YouTube Music/suscripciones/suscripciones.csv" // There is a <NBSP> between YouTube and Music
-    };
-
-    public static boolean IsEntryPathMatch(@Nonnull String entryName) {
-        for (String entryPath : ENTRY_PATHS) {
-            if (entryPath.equalsIgnoreCase(entryName)) {
-                return true;
-            }
-        }
-        return false;
+        throw new InvalidSourceException("Unable to find a valid subscriptions.csv file (try extracting and selecting the csv file)");
     }
 
     public List<SubscriptionItem> fromCsvInputStream(@Nonnull final InputStream contentInputStream)
             throws ExtractionException {
+        // Expected format of CSV file:
+        //      Channel Id,Channel Url,Channel Title
+        //      UC1JTQBa5QxZCpXrFSkMxmPw,http://www.youtube.com/channel/UC1JTQBa5QxZCpXrFSkMxmPw,Raycevick
+        //      UCFl7yKfcRcFmIUbKeCA-SJQ,http://www.youtube.com/channel/UCFl7yKfcRcFmIUbKeCA-SJQ,Joji
+        //
+        // Notes:
+        //      It's always 3 columns
+        //      The first line is always a header
+        //      Header names are different based on the locale
+        //      Fortunately the data is always the same order no matter what locale
+
+        int currentLine = 0;
+        String line = "";
+
         try (BufferedReader br = new BufferedReader(new InputStreamReader(contentInputStream))) {
             List<SubscriptionItem> subscriptionItems = new ArrayList<>();
 
-            // Skip header
-            br.readLine();
+            // Ignore header
+            currentLine = 1;
+            line = br.readLine();
 
-            String line;
             while ((line = br.readLine()) != null) {
+                currentLine++;
+
+                // Exit early if we've read the first few lines and we haven't added any items
+                // It's likely we're in the wrong file
+                if (currentLine > 5 && subscriptionItems.size() == 0) {
+                    break;
+                }
+
+                // First comma
                 int i1 = line.indexOf(",");
-                if (i1 == -1) continue;
+                if (i1 == -1) {
+                    continue;
+                }
 
+                // Second comma
                 int i2 = line.indexOf(",", i1 + 1);
-                if (i2 == -1) continue;
+                if (i2 == -1) {
+                    continue;
+                }
 
-                String channelUrl = line.substring(i1 + 1, i2);
-                String channelTitle = line.substring(i2 + 1);
+                // Third comma or line length
+                int i3 = line.indexOf(",", i2 + 1);
+                if (i3 == -1) {
+                    i3 = line.length();
+                }
+
+                // Channel URL from second entry
+                String channelUrl = line
+                        .substring(i1 + 1, i2)
+                        .replace("http://", "https://");
+                if (!channelUrl.startsWith(BASE_CHANNEL_URL)) {
+                    continue;
+                }
+
+                // Channel title from third entry
+                String channelTitle = line.substring(i2 + 1, i3);
+
                 SubscriptionItem newItem = new SubscriptionItem(service.getServiceId(), channelUrl, channelTitle);
                 subscriptionItems.add(newItem);
             }
 
             return subscriptionItems;
         } catch (IOException e) {
-            throw new InvalidSourceException("Error reading CSV file");
+            if (line == null) {
+                line = "<null>";
+            }
+            if (line.length() > 10) {
+                line = line.substring(0, 10) + "...";
+            }
+            throw new InvalidSourceException("Error reading CSV file, line = '" + line + "', line number = " + currentLine);
         }
     }
 }
