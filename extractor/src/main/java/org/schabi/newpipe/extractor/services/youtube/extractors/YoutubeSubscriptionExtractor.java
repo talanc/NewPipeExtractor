@@ -100,14 +100,14 @@ public class YoutubeSubscriptionExtractor extends SubscriptionExtractor {
 
     public List<SubscriptionItem> fromZipInputStream(@Nonnull final InputStream contentInputStream)
             throws ExtractionException {
-        ZipInputStream zipInputStream = new ZipInputStream(contentInputStream);
+        final ZipInputStream zipInputStream = new ZipInputStream(contentInputStream);
 
         try {
             ZipEntry zipEntry;
             while ((zipEntry = zipInputStream.getNextEntry()) != null) {
                 if (zipEntry.getName().toLowerCase().endsWith(".csv")) {
                     try {
-                        List<SubscriptionItem> csvItems = fromCsvInputStream(zipInputStream);
+                        final List<SubscriptionItem> csvItems = fromCsvInputStream(zipInputStream);
 
                         // Return it only if it has items (it exits early if it's the wrong file format)
                         // Otherwise try the next file
@@ -144,7 +144,7 @@ public class YoutubeSubscriptionExtractor extends SubscriptionExtractor {
         String line = "";
 
         try (BufferedReader br = new BufferedReader(new InputStreamReader(contentInputStream))) {
-            List<SubscriptionItem> subscriptionItems = new ArrayList<>();
+            final List<SubscriptionItem> subscriptionItems = new ArrayList<>();
 
             // Ignore header
             currentLine = 1;
@@ -178,7 +178,7 @@ public class YoutubeSubscriptionExtractor extends SubscriptionExtractor {
                 }
 
                 // Channel URL from second entry
-                String channelUrl = line
+                final String channelUrl = line
                         .substring(i1 + 1, i2)
                         .replace("http://", "https://");
                 if (!channelUrl.startsWith(BASE_CHANNEL_URL)) {
@@ -186,9 +186,9 @@ public class YoutubeSubscriptionExtractor extends SubscriptionExtractor {
                 }
 
                 // Channel title from third entry
-                String channelTitle = line.substring(i2 + 1, i3);
+                final String channelTitle = line.substring(i2 + 1, i3);
 
-                SubscriptionItem newItem = new SubscriptionItem(service.getServiceId(), channelUrl, channelTitle);
+                final SubscriptionItem newItem = new SubscriptionItem(service.getServiceId(), channelUrl, channelTitle);
                 subscriptionItems.add(newItem);
             }
 
