@@ -196,8 +196,7 @@ public class YoutubeSubscriptionExtractor extends SubscriptionExtractor {
         } catch (IOException e) {
             if (line == null) {
                 line = "<null>";
-            }
-            if (line.length() > 10) {
+            } else if (line.length() > 10) {
                 line = line.substring(0, 10) + "...";
             }
             throw new InvalidSourceException("Error reading CSV file, line = '" + line + "', line number = " + currentLine);
